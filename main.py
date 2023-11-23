@@ -139,16 +139,16 @@ def get_user_inputs():
 
 def main_process(csv_file_path, db_file_path, xlsx_file_path, progress_callback):
     # Call the callback function with a progress update
-    progress_callback("<font color='#FFA500'>Starting process...</font>")
+    progress_callback("<font color='#ff843d'>Starting process...</font>")
 
     csv_data = pd.read_csv(csv_file_path, delimiter=';')
-    progress_callback("<font color='lightgreen'>CSV data loaded.</font>")
+    progress_callback("<font color='#d5ff3d'>CSV data loaded  ✓</font>")
 
     create_and_populate_tables(csv_data, db_file_path, progress_callback)
-    progress_callback("<font color='lightgreen'>Tables created and populated.</font>")
+    progress_callback("<font color='#d5ff3d'>Tables created and populated  ✓</font>")
 
     create_xlsx_file(db_file_path, xlsx_file_path, progress_callback)
-    progress_callback("<font color='lightgreen'>XLSX file created.</font>")
+    progress_callback("<font color='#d5ff3d'>XLSX file created  ✓</font>")
 
-    progress_callback("<font color='lightgreen'>Process completed successfully.</font>")
+    progress_callback("<font color='#64ff3d'>Process completed successfully  ✓</font>")
 
