@@ -105,9 +105,9 @@ def create_xlsx_file(database_path, xlsx_path, progress_callback):
                 # Set the column widths
                 worksheet = writer.sheets[fahrzeugname]
                 worksheet.set_column('A:A', 10)  # Datum
-                worksheet.set_column('B:B', 35)  # Erster_Startort
+                worksheet.set_column('B:B', 70)  # Erster_Startort
                 worksheet.set_column('C:C', 13)  # Erste_Startzeit
-                worksheet.set_column('D:D', 35)  # Letzter_Stoppstandort
+                worksheet.set_column('D:D', 70)  # Letzter_Stoppstandort
                 worksheet.set_column('E:E', 13)  # Letzte_Stoppzeit
                 progress_callback(f"Writing to sheet: {fahrzeugname}")
 
