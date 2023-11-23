@@ -78,7 +78,7 @@ Once the files are selected, the program will display the paths to the chosen fi
 
 3. Click the "Processing" button to begin processing the data. The GUI will provide feedback on the progress of the operations.
 
-![Example_gui](data/example.png)
+![Example_gui](data/Example.png)
 
 After processing, the SQLite database will be updated, and an XLSX file will be created at the specified location with the processed data.
 
