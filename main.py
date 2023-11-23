@@ -29,11 +29,12 @@ def sanitize_table_name(name):
     return name
 
 def check_date_exists(conn, table_name, date):
-    """Check if the date already exists in the table"""
-    query = f"SELECT COUNT(1) FROM {table_name} WHERE Datum = ?"
+    """Check if the date already exists in the table and return the latest stop time if it does"""
+    query = f"SELECT Letzte_Stoppzeit FROM {table_name} WHERE Datum = ?"
     cur = conn.cursor()
     cur.execute(query, (date,))
-    return cur.fetchone()[0] > 0
+    result = cur.fetchone()
+    return result[0] if result else None
 
 def create_and_populate_tables(csv_data, database_path, progress_callback):
     conn = create_connection(database_path)
@@ -42,10 +43,8 @@ def create_and_populate_tables(csv_data, database_path, progress_callback):
         with conn:
             for fahrzeugname in csv_data['Fahrzeugname'].unique():
                 table_name = sanitize_table_name(fahrzeugname)
-                print(f"Creating table: {table_name}")  # Debugging print
                 progress_callback(f"Creating table: {table_name}")
 
-                # Create table for each Fahrzeugname
                 create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
                     Datum TEXT,
@@ -57,38 +56,44 @@ def create_and_populate_tables(csv_data, database_path, progress_callback):
                 """
                 create_table(conn, create_table_sql)
 
-                # Process data for each Fahrzeugname
                 fahrzeug_data = csv_data[csv_data['Fahrzeugname'] == fahrzeugname]
                 for date in fahrzeug_data['Datum'].unique():
                     daily_data = fahrzeug_data[fahrzeug_data['Datum'] == date]
                     first_start = daily_data.iloc[0]
                     last_stop = daily_data.iloc[-1]
 
-                    # Check if the date already exists in the table
-                    if not check_date_exists(conn, table_name, date):
-                        # Insert data into the table
+                    existing_stoppzeit = check_date_exists(conn, table_name, date)
+                    if existing_stoppzeit:
+                        new_stoppzeit = last_stop['Ankunftszeit']
+                        if new_stoppzeit > existing_stoppzeit:
+                            update_sql = f"""UPDATE {table_name} SET 
+                                                Erster_Startort = ?, 
+                                                Erste_Startzeit = ?, 
+                                                Letzter_Stoppstandort = ?, 
+                                                Letzte_Stoppzeit = ?
+                                            WHERE Datum = ?;"""
+                            conn.execute(update_sql, (first_start['Startstandort'], first_start['Startzeit'], 
+                                                      last_stop['Stoppstandort'], new_stoppzeit, date))
+                            progress_callback(f"Updated entry for {date} in table {table_name}")
+                        else:
+                            progress_callback(f"Skipped earlier or same entry for {date} in table {table_name}")
+                    else:
                         insert_sql = f"""INSERT INTO {table_name} (Datum, Erster_Startort, Erste_Startzeit, Letzter_Stoppstandort, Letzte_Stoppzeit) 
                                         VALUES (?, ?, ?, ?, ?);"""
-                        conn.execute(insert_sql, (date, first_start['Startstandort'], first_start['Startzeit'], last_stop['Stoppstandort'], last_stop['Ankunftszeit']))
+                        conn.execute(insert_sql, (date, first_start['Startstandort'], first_start['Startzeit'], 
+                                                  last_stop['Stoppstandort'], last_stop['Ankunftszeit']))
+                        progress_callback(f"Inserted new entry for {date} in table {table_name}")
 
         print("Data successfully imported into SQLite database.")
     else:
         print("Failed to create database connection.")
 
 def create_xlsx_file(database_path, xlsx_path, progress_callback):
-    """Create or append an XLSX file that mirrors the SQLite database and set column widths"""
     conn = create_connection(database_path)
     if conn:
         cur = conn.cursor()
         cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cur.fetchall()
-
-        # Load existing Excel file into a DataFrame if it exists
-        if os.path.exists(xlsx_path):
-            with pd.ExcelFile(xlsx_path) as xls:
-                existing_data = {sheet: pd.read_excel(xls, sheet) for sheet in xls.sheet_names}
-        else:
-            existing_data = {}
 
         with pd.ExcelWriter(xlsx_path, engine='xlsxwriter') as writer:
             for table in tables:
@@ -96,20 +101,15 @@ def create_xlsx_file(database_path, xlsx_path, progress_callback):
                 query = f"SELECT * FROM {fahrzeugname}"
                 df = pd.read_sql_query(query, conn)
 
-                # Append to existing sheet data if it exists
-                if fahrzeugname in existing_data:
-                    df = pd.concat([existing_data[fahrzeugname], df])
-
                 df.to_excel(writer, sheet_name=fahrzeugname, index=False)
 
-                # Set the column widths
                 worksheet = writer.sheets[fahrzeugname]
                 worksheet.set_column('A:A', 10)  # Datum
                 worksheet.set_column('B:B', 70)  # Erster_Startort
                 worksheet.set_column('C:C', 13)  # Erste_Startzeit
                 worksheet.set_column('D:D', 70)  # Letzter_Stoppstandort
                 worksheet.set_column('E:E', 13)  # Letzte_Stoppzeit
-                progress_callback(f"Writing to sheet: {fahrzeugname}")
+                progress_callback(f"Mirrored data to sheet: {fahrzeugname}")
 
     else:
         print("Failed to create database connection.")
