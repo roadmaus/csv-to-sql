@@ -1,11 +1,29 @@
 import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QFileDialog, 
-                             QMessageBox, QVBoxLayout, QWidget, QLabel)
+                             QMessageBox, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QTextEdit)
 import main  
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtGui import QTextCursor
+
+class Worker(QThread):
+    progress = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, csv_file_path, db_file_path, xlsx_file_path):
+        super().__init__()
+        self.csv_file_path = csv_file_path
+        self.db_file_path = db_file_path
+        self.xlsx_file_path = xlsx_file_path
+
+    def run(self):
+        try:
+            main.main_process(self.csv_file_path, self.db_file_path, self.xlsx_file_path, self.progress.emit)
+        except Exception as e:
+            self.error.emit(f"<font color='red'>An error occurred: {e}</font>")
 
 class DataProcessorApp(QMainWindow):
     def __init__(self):
@@ -16,44 +34,56 @@ class DataProcessorApp(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('Data Processor App')
-        self.setGeometry(300, 300, 500, 300)
+        self.setWindowTitle('Fahrdaten-Manager')
+        self.setGeometry(300, 300, 1000, 400)
 
-        layout = QVBoxLayout()
+        # Create a QVBoxLayout for the buttons
+        button_layout = QVBoxLayout()
 
         # Labels to display selected file paths
         self.lbl_csv_path = QLabel(self.format_label('CSV', None))
-        layout.addWidget(self.lbl_csv_path)
+        button_layout.addWidget(self.lbl_csv_path)
 
         self.lbl_db_path = QLabel(self.format_label('Database', None))
-        layout.addWidget(self.lbl_db_path)
+        button_layout.addWidget(self.lbl_db_path)
 
         self.lbl_xlsx_path = QLabel(self.format_label('XLSX', None))
-        layout.addWidget(self.lbl_xlsx_path)
+        button_layout.addWidget(self.lbl_xlsx_path)
 
         # Select CSV Button with Icon
         btn_select_csv = QPushButton('', self)
         btn_select_csv.setIcon(QIcon('icons/csv_icon.png'))
         btn_select_csv.setIconSize(QSize(40, 40))
-        btn_select_csv.setToolTip('Select a CSV file to process') 
+        btn_select_csv.setToolTip('Wählen Sie eine CSV-Datei zur Verarbeitung aus.') 
         btn_select_csv.clicked.connect(self.select_csv)  # Connect to select_csv method
-        layout.addWidget(btn_select_csv)
+        button_layout.addWidget(btn_select_csv)
 
         # Select/Create Database Button with Icon
         btn_select_db = QPushButton('', self)
         btn_select_db.setIcon(QIcon('icons/db_icon.png'))
         btn_select_db.setIconSize(QSize(40, 40))
-        btn_select_db.setToolTip('Select or create a database file')
+        btn_select_db.setToolTip('Wählen Sie eine Datenbankdatei aus oder erstellen Sie eine.')
         btn_select_db.clicked.connect(self.select_database)  # Connect to select_database method
-        layout.addWidget(btn_select_db)
+        button_layout.addWidget(btn_select_db)
 
         # Process Button with Icon
         btn_process = QPushButton('', self)
         btn_process.setIcon(QIcon('icons/process_icon.png'))
         btn_process.setIconSize(QSize(40, 40))
-        btn_process.setToolTip('Process the selected Data')
+        btn_process.setToolTip('Verarbeiten Sie die ausgewählten Daten.')
         btn_process.clicked.connect(self.process_data)  # Connect to process_data method
-        layout.addWidget(btn_process)
+        button_layout.addWidget(btn_process)
+
+        # Create a QTextEdit for the console output
+        self.console_output = QTextEdit()
+        self.console_output.setReadOnly(True)  # Make it read-only
+
+        # Create a QHBoxLayout for the overall layout
+        layout = QHBoxLayout()
+
+        # Add the button layout and console output to the overall layout
+        layout.addLayout(button_layout)
+        layout.addWidget(self.console_output)
 
         container = QWidget()
         container.setLayout(layout)
@@ -66,7 +96,6 @@ class DataProcessorApp(QMainWindow):
         else:
             # No file selected, show 'None' in orange
             return f"<b>Selected {file_type} File:</b> <span style='color:orange'>None</span>"
-
 
     def select_csv(self):
         self.csv_file_path, _ = QFileDialog.getOpenFileName(self, 'Open CSV File', '', 'CSV files (*.csv)')
@@ -92,17 +121,19 @@ class DataProcessorApp(QMainWindow):
             QMessageBox.critical(self, "Error", "Please select all files")
             return
 
-        try:
-            main.main_process(self.csv_file_path, self.db_file_path, self.xlsx_file_path)
-            QMessageBox.information(self, "Success", "Data processed successfully")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"An error occurred: {e}")
+        self.worker = Worker(self.csv_file_path, self.db_file_path, self.xlsx_file_path)
+        self.worker.progress.connect(self.append_to_console)
+        self.worker.error.connect(self.append_to_console)
+        self.worker.start()
 
-def main_gui():
+    def append_to_console(self, text):
+        self.console_output.moveCursor(QTextCursor.End)
+        self.console_output.insertHtml(text)
+        self.console_output.insertPlainText("\n")  # Add a newline to separate entries
+        self.console_output.moveCursor(QTextCursor.End)
+
+if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = DataProcessorApp()
     ex.show()
     sys.exit(app.exec_())
-
-if __name__ == '__main__':
-    main_gui()

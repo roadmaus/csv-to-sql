@@ -35,7 +35,7 @@ def check_date_exists(conn, table_name, date):
     cur.execute(query, (date,))
     return cur.fetchone()[0] > 0
 
-def create_and_populate_tables(csv_data, database_path):
+def create_and_populate_tables(csv_data, database_path, progress_callback):
     conn = create_connection(database_path)
 
     if conn:
@@ -43,6 +43,7 @@ def create_and_populate_tables(csv_data, database_path):
             for fahrzeugname in csv_data['Fahrzeugname'].unique():
                 table_name = sanitize_table_name(fahrzeugname)
                 print(f"Creating table: {table_name}")  # Debugging print
+                progress_callback(f"Creating table: {table_name}")
 
                 # Create table for each Fahrzeugname
                 create_table_sql = f"""
@@ -74,7 +75,7 @@ def create_and_populate_tables(csv_data, database_path):
     else:
         print("Failed to create database connection.")
 
-def create_xlsx_file(database_path, xlsx_path):
+def create_xlsx_file(database_path, xlsx_path, progress_callback):
     """Create or append an XLSX file that mirrors the SQLite database and set column widths"""
     conn = create_connection(database_path)
     if conn:
@@ -108,9 +109,10 @@ def create_xlsx_file(database_path, xlsx_path):
                 worksheet.set_column('C:C', 13)  # Erste_Startzeit
                 worksheet.set_column('D:D', 35)  # Letzter_Stoppstandort
                 worksheet.set_column('E:E', 13)  # Letzte_Stoppzeit
+                progress_callback(f"Writing to sheet: {fahrzeugname}")
+
     else:
         print("Failed to create database connection.")
-
 
 
 def get_user_inputs():
@@ -135,9 +137,18 @@ def get_user_inputs():
     return answers['csv_file'], answers['db_file'], answers['xlsx_file']
 
 
-def main_process(csv_file_path, db_file_path, xlsx_file_path):
-    csv_data = pd.read_csv(csv_file_path, delimiter=';')
-    create_and_populate_tables(csv_data, db_file_path)
-    create_xlsx_file(db_file_path, xlsx_file_path)
+def main_process(csv_file_path, db_file_path, xlsx_file_path, progress_callback):
+    # Call the callback function with a progress update
+    progress_callback("<font color='#FFA500'>Starting process...</font>")
 
+    csv_data = pd.read_csv(csv_file_path, delimiter=';')
+    progress_callback("<font color='lightgreen'>CSV data loaded.</font>")
+
+    create_and_populate_tables(csv_data, db_file_path, progress_callback)
+    progress_callback("<font color='lightgreen'>Tables created and populated.</font>")
+
+    create_xlsx_file(db_file_path, xlsx_file_path, progress_callback)
+    progress_callback("<font color='lightgreen'>XLSX file created.</font>")
+
+    progress_callback("<font color='lightgreen'>Process completed successfully.</font>")
 
