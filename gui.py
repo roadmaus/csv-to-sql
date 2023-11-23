@@ -15,6 +15,8 @@ from PyQt5.QtWidgets import QGridLayout
 class Worker(QThread):
     progress = pyqtSignal(str)
     error = pyqtSignal(str)
+    success = pyqtSignal()
+    failure = pyqtSignal()
 
     def __init__(self, csv_file_path, db_file_path, xlsx_file_path):
         super().__init__()
@@ -25,8 +27,10 @@ class Worker(QThread):
     def run(self):
         try:
             main.main_process(self.csv_file_path, self.db_file_path, self.xlsx_file_path, self.progress.emit)
+            self.success.emit()
         except Exception as e:
             self.error.emit(f"<font color='red'>An error occurred: {e}</font>")
+            self.failure.emit()
 
 class DataProcessorApp(QMainWindow):
     def __init__(self):
@@ -47,9 +51,12 @@ class DataProcessorApp(QMainWindow):
                 self.db_file_path, self.xlsx_file_path = pickle.load(f)
                 self.lbl_db_path.setText(self.format_label('Database', self.db_file_path))
                 self.lbl_xlsx_path.setText(self.format_label('XLSX', self.xlsx_file_path))
+                if self.db_file_path and self.xlsx_file_path:
+                    self.btn_select_db.setStyleSheet("background-color: #d1ff5c;")
+                if self.csv_file_path and self.db_file_path and self.xlsx_file_path:
+                    self.btn_process.setStyleSheet("background-color: #5c6aff;")
         except FileNotFoundError:
-            pass  # It's okay if the file doesn't exist yet
-
+            pass 
 
     def initUI(self):
         self.setWindowTitle('Fahrdaten-Manager')
@@ -69,32 +76,35 @@ class DataProcessorApp(QMainWindow):
         button_layout.addWidget(self.lbl_xlsx_path)
 
         # Select CSV Button with Icon
-        btn_select_csv = QPushButton('', self)
-        btn_select_csv.setIcon(QIcon('icons/csv_icon.png'))
-        btn_select_csv.setIconSize(QSize(40, 40))
-        btn_select_csv.setFixedSize(80, 60)  # Set the size of the button
-        btn_select_csv.setToolTip('Wählen Sie eine CSV-Datei zur Verarbeitung aus.') 
-        btn_select_csv.clicked.connect(self.select_csv)  # Connect to select_csv method
-        button_layout.addWidget(btn_select_csv)
+        self.btn_select_csv = QPushButton('', self)
+        self.btn_select_csv.setIcon(QIcon('icons/csv_icon.png'))
+        self.btn_select_csv.setIconSize(QSize(40, 40))
+        self.btn_select_csv.setFixedSize(75, 55)  # Set the size of the button
+        self.btn_select_csv.setStyleSheet("background-color: #ffd65c;")
+        self.btn_select_csv.setToolTip('Wählen Sie eine CSV-Datei zur Verarbeitung aus.') 
+        self.btn_select_csv.clicked.connect(self.select_csv)  # Connect to select_csv method
+        button_layout.addWidget(self.btn_select_csv)
 
         # Select/Create Database Button with Icon
-        btn_select_db = QPushButton('', self)
-        btn_select_db.setIcon(QIcon('icons/db_icon.png'))
-        btn_select_db.setIconSize(QSize(40, 40))
-        btn_select_db.setFixedSize(80, 60)  # Set the size of the button
-        btn_select_db.setToolTip('Wählen Sie eine Datenbankdatei aus oder erstellen Sie eine.')
-        btn_select_db.clicked.connect(self.select_database)  # Connect to select_database method
-        button_layout.addWidget(btn_select_db)
+        self.btn_select_db = QPushButton('', self)
+        self.btn_select_db.setIcon(QIcon('icons/db_icon.png'))
+        self.btn_select_db.setIconSize(QSize(40, 40))
+        self.btn_select_db.setFixedSize(75, 55) 
+        self.btn_select_db.setStyleSheet("background-color: #ffd65c;")
+        self.btn_select_db.setToolTip('Wählen Sie eine Datenbankdatei aus oder erstellen Sie eine.')
+        self.btn_select_db.clicked.connect(self.select_database)  # Connect to select_database method
+        button_layout.addWidget(self.btn_select_db)
 
         # Process Button with Icon
-        btn_process = QPushButton('', self)
-        btn_process.setIcon(QIcon('icons/process_icon.png'))
-        btn_process.setIconSize(QSize(40, 40))
-        btn_process.setFixedSize(80, 60)  # Set the size of the button
-        btn_process.setToolTip('Verarbeiten Sie die ausgewählten Daten.')
-        btn_process.clicked.connect(self.process_data)  # Connect to process_data method
-        button_layout.addWidget(btn_process)
-
+        self.btn_process = QPushButton('', self)
+        self.btn_process.setIcon(QIcon('icons/process_icon.png'))
+        self.btn_process.setIconSize(QSize(40, 40))
+        self.btn_process.setFixedSize(75, 55)  # Set the size of the button
+        self.btn_process.setStyleSheet("background-color: #808080;")  # Set the background color to grey
+        self.btn_process.setToolTip('Verarbeiten Sie die ausgewählten Daten.')
+        self.btn_process.clicked.connect(self.process_data)  # Connect to process_data method
+        button_layout.addWidget(self.btn_process)
+        
         # Create a QTextEdit for the console output
         self.console_output = QTextEdit()
         self.console_output.setReadOnly(True)  # Make it read-only
@@ -120,25 +130,29 @@ class DataProcessorApp(QMainWindow):
 
     def select_csv(self):
         self.csv_file_path, _ = QFileDialog.getOpenFileName(self, 'Open CSV File', '', 'CSV files (*.csv)')
+        if self.csv_file_path:
+            self.btn_select_csv.setStyleSheet("background-color: #d1ff5c;")
         self.lbl_csv_path.setText(self.format_label('CSV', self.csv_file_path))
-        #self.save_paths()
-
+        if self.csv_file_path and self.db_file_path and self.xlsx_file_path:
+            self.btn_process.setStyleSheet("background-color: #5c6aff;")
 
     def select_database(self):
         choice = QMessageBox.question(self, 'Database Selection', 'Do you want to create a new database?', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if choice == QMessageBox.Yes:
             self.db_file_path, _ = QFileDialog.getSaveFileName(self, "Create Database File", "", "SQLite Database Files (*.db)")
-            if self.db_file_path:
-                base, _ = os.path.splitext(self.db_file_path)
-                self.xlsx_file_path = base + '.xlsx'
         else:
             self.db_file_path, _ = QFileDialog.getOpenFileName(self, "Select Database File", "", "SQLite Database Files (*.db)")
-            if self.db_file_path:
-                self.xlsx_file_path, _ = QFileDialog.getOpenFileName(self, "Select XLSX File", "", "Excel Files (*.xlsx)")
         
-        self.lbl_db_path.setText(self.format_label('Database', self.db_file_path))
-        self.lbl_xlsx_path.setText(self.format_label('XLSX', self.xlsx_file_path))
-        self.save_paths()
+        if self.db_file_path:
+            base, _ = os.path.splitext(self.db_file_path)
+            self.xlsx_file_path = base + '.xlsx'
+            self.btn_select_db.setStyleSheet("background-color: #d1ff5c;")
+            self.lbl_db_path.setText(self.format_label('Database', self.db_file_path))
+            self.lbl_xlsx_path.setText(self.format_label('XLSX', self.xlsx_file_path))
+            self.save_paths()
+            if self.csv_file_path and self.db_file_path and self.xlsx_file_path:
+                self.btn_process.setStyleSheet("background-color: #5c6aff;")
+
 
     def process_data(self):
         if not all([self.csv_file_path, self.db_file_path, self.xlsx_file_path]):
@@ -150,6 +164,14 @@ class DataProcessorApp(QMainWindow):
         self.worker.error.connect(self.append_to_console)
         self.worker.start()
         self.save_paths()
+        self.worker.success.connect(self.on_success)
+        self.worker.failure.connect(self.on_failure)
+
+    def on_success(self):
+        self.btn_process.setStyleSheet("background-color: #82ff5c;")  # Green for success
+
+    def on_failure(self):
+        self.btn_process.setStyleSheet("background-color: #ff0000;")  # Red for failure
 
     def append_to_console(self, text):
         self.console_output.moveCursor(QTextCursor.End)
