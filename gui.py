@@ -8,6 +8,9 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtGui import QTextCursor
+import pickle
+from PyQt5.QtWidgets import QGridLayout
+
 
 class Worker(QThread):
     progress = pyqtSignal(str)
@@ -32,6 +35,21 @@ class DataProcessorApp(QMainWindow):
         self.db_file_path = None
         self.xlsx_file_path = None
         self.initUI()
+        self.load_paths()
+
+    def save_paths(self):
+        with open('paths.pkl', 'wb') as f:
+            pickle.dump((self.db_file_path, self.xlsx_file_path), f)
+
+    def load_paths(self):
+        try:
+            with open('paths.pkl', 'rb') as f:
+                self.db_file_path, self.xlsx_file_path = pickle.load(f)
+                self.lbl_db_path.setText(self.format_label('Database', self.db_file_path))
+                self.lbl_xlsx_path.setText(self.format_label('XLSX', self.xlsx_file_path))
+        except FileNotFoundError:
+            pass  # It's okay if the file doesn't exist yet
+
 
     def initUI(self):
         self.setWindowTitle('Fahrdaten-Manager')
@@ -54,6 +72,7 @@ class DataProcessorApp(QMainWindow):
         btn_select_csv = QPushButton('', self)
         btn_select_csv.setIcon(QIcon('icons/csv_icon.png'))
         btn_select_csv.setIconSize(QSize(40, 40))
+        btn_select_csv.setFixedSize(80, 60)  # Set the size of the button
         btn_select_csv.setToolTip('Wählen Sie eine CSV-Datei zur Verarbeitung aus.') 
         btn_select_csv.clicked.connect(self.select_csv)  # Connect to select_csv method
         button_layout.addWidget(btn_select_csv)
@@ -62,6 +81,7 @@ class DataProcessorApp(QMainWindow):
         btn_select_db = QPushButton('', self)
         btn_select_db.setIcon(QIcon('icons/db_icon.png'))
         btn_select_db.setIconSize(QSize(40, 40))
+        btn_select_db.setFixedSize(80, 60)  # Set the size of the button
         btn_select_db.setToolTip('Wählen Sie eine Datenbankdatei aus oder erstellen Sie eine.')
         btn_select_db.clicked.connect(self.select_database)  # Connect to select_database method
         button_layout.addWidget(btn_select_db)
@@ -70,6 +90,7 @@ class DataProcessorApp(QMainWindow):
         btn_process = QPushButton('', self)
         btn_process.setIcon(QIcon('icons/process_icon.png'))
         btn_process.setIconSize(QSize(40, 40))
+        btn_process.setFixedSize(80, 60)  # Set the size of the button
         btn_process.setToolTip('Verarbeiten Sie die ausgewählten Daten.')
         btn_process.clicked.connect(self.process_data)  # Connect to process_data method
         button_layout.addWidget(btn_process)
@@ -100,6 +121,8 @@ class DataProcessorApp(QMainWindow):
     def select_csv(self):
         self.csv_file_path, _ = QFileDialog.getOpenFileName(self, 'Open CSV File', '', 'CSV files (*.csv)')
         self.lbl_csv_path.setText(self.format_label('CSV', self.csv_file_path))
+        #self.save_paths()
+
 
     def select_database(self):
         choice = QMessageBox.question(self, 'Database Selection', 'Do you want to create a new database?', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -115,6 +138,7 @@ class DataProcessorApp(QMainWindow):
         
         self.lbl_db_path.setText(self.format_label('Database', self.db_file_path))
         self.lbl_xlsx_path.setText(self.format_label('XLSX', self.xlsx_file_path))
+        self.save_paths()
 
     def process_data(self):
         if not all([self.csv_file_path, self.db_file_path, self.xlsx_file_path]):
@@ -125,6 +149,7 @@ class DataProcessorApp(QMainWindow):
         self.worker.progress.connect(self.append_to_console)
         self.worker.error.connect(self.append_to_console)
         self.worker.start()
+        self.save_paths()
 
     def append_to_console(self, text):
         self.console_output.moveCursor(QTextCursor.End)
@@ -137,3 +162,4 @@ if __name__ == '__main__':
     ex = DataProcessorApp()
     ex.show()
     sys.exit(app.exec_())
+    
