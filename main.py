@@ -123,9 +123,9 @@ def create_xlsx_file(database_path, xlsx_path, progress_callback):
                 # Adjust column widths as needed for the new structure
                 worksheet.set_column('A:A', 12)  # Datum
                 worksheet.set_column('B:B', 25)  # ErsterTripVonBis
-                worksheet.set_column('C:C', 35)  # ErsterTripOrte
+                worksheet.set_column('C:C', 100)  # ErsterTripOrte
                 worksheet.set_column('D:D', 25)  # LetzterTripVonBis
-                worksheet.set_column('E:E', 35)  # LetzterTripOrte
+                worksheet.set_column('E:E', 100)  # LetzterTripOrte
                 progress_callback(f"Mirrored data to sheet: {fahrzeugname}")
 
     else:
