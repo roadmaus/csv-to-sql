@@ -1,4 +1,6 @@
 # Fahrdaten-Manager
+[Lesen Sie dieses Dokument auf Deutsch](docs/ger.md)
+
 
 Fahrdaten-Manager is a Python-based tool for importing and processing vehicle trip data stored in CSV format, managing this data within a SQLite database, and exporting it to an XLSX file for further analysis.
 
