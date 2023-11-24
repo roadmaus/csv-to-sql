@@ -1,10 +1,7 @@
 import sqlite3
 import pandas as pd
-import argparse
 import re
 from PyInquirer import prompt
-
-import os
 
 def create_connection(db_file):
     """Create a database connection to a SQLite database"""
@@ -24,17 +21,17 @@ def create_table(conn, create_table_sql):
         print(e)
 
 def sanitize_table_name(name):
-    """ Sanitize the table name to ensure it adheres to SQL naming conventions """
+    """Sanitize the table name to ensure it adheres to SQL naming conventions"""
     name = re.sub(r'\W+', '_', name)  
     return name
 
 def check_date_exists(conn, table_name, date):
-    """Check if the date already exists in the table and return the latest stop time if it does"""
-    query = f"SELECT Letzte_Stoppzeit FROM {table_name} WHERE Datum = ?"
+    """Check if the date already exists in the table and return the existing trip times if it does"""
+    query = f"SELECT ErsterTripVonBis, LetzterTripVonBis FROM {table_name} WHERE Datum = ?"
     cur = conn.cursor()
     cur.execute(query, (date,))
     result = cur.fetchone()
-    return result[0] if result else None
+    return result if result else None
 
 def create_and_populate_tables(csv_data, database_path, progress_callback):
     conn = create_connection(database_path)
@@ -45,13 +42,14 @@ def create_and_populate_tables(csv_data, database_path, progress_callback):
                 table_name = sanitize_table_name(fahrzeugname)
                 progress_callback(f"Creating table: {table_name}")
 
+                # New SQL statement for table creation
                 create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
-                    Datum TEXT,
-                    Erster_Startort TEXT,
-                    Erste_Startzeit TEXT,
-                    Letzter_Stoppstandort TEXT,
-                    Letzte_Stoppzeit TEXT
+                    Datum DATE,
+                    ErsterTripVonBis TEXT,
+                    ErsterTripOrte TEXT,
+                    LetzterTripVonBis TEXT,
+                    LetzterTripOrte TEXT
                 );
                 """
                 create_table(conn, create_table_sql)
@@ -59,34 +57,52 @@ def create_and_populate_tables(csv_data, database_path, progress_callback):
                 fahrzeug_data = csv_data[csv_data['Fahrzeugname'] == fahrzeugname]
                 for date in fahrzeug_data['Datum'].unique():
                     daily_data = fahrzeug_data[fahrzeug_data['Datum'] == date]
-                    first_start = daily_data.iloc[0]
-                    last_stop = daily_data.iloc[-1]
 
-                    existing_stoppzeit = check_date_exists(conn, table_name, date)
-                    if existing_stoppzeit:
-                        new_stoppzeit = last_stop['Ankunftszeit']
-                        if new_stoppzeit > existing_stoppzeit:
+                    if len(daily_data) == 0:
+                        continue  # Skip days with no trips
+
+                    # Sorting data to find the first and last trips
+                    daily_data_sorted_by_start = daily_data.sort_values('Startzeit')
+                    daily_data_sorted_by_end = daily_data.sort_values('Ankunftszeit')
+
+                    first_trip = daily_data_sorted_by_start.iloc[0]
+                    last_trip = daily_data_sorted_by_end.iloc[-1]
+
+                    # Preparing data for insertion
+                    erster_trip_von_bis = f"{first_trip['Startzeit']} - {first_trip['Ankunftszeit']}"
+                    erster_trip_orte = f"{first_trip['Startstandort']} - {first_trip['Stoppstandort']}"
+                    letzter_trip_von_bis = f"{last_trip['Startzeit']} - {last_trip['Ankunftszeit']}"
+                    letzter_trip_orte = f"{last_trip['Startstandort']} - {last_trip['Stoppstandort']}"
+
+                    existing_entry = check_date_exists(conn, table_name, date)
+                    if existing_entry:
+                        existing_erster_trip_von_bis, existing_letzter_trip_von_bis = existing_entry
+                        if (erster_trip_von_bis > existing_erster_trip_von_bis or letzter_trip_von_bis > existing_letzter_trip_von_bis):
+                            # Update the existing entry
                             update_sql = f"""UPDATE {table_name} SET 
-                                                Erster_Startort = ?, 
-                                                Erste_Startzeit = ?, 
-                                                Letzter_Stoppstandort = ?, 
-                                                Letzte_Stoppzeit = ?
+                                                ErsterTripVonBis = ?, 
+                                                ErsterTripOrte = ?, 
+                                                LetzterTripVonBis = ?, 
+                                                LetzterTripOrte = ?
                                             WHERE Datum = ?;"""
-                            conn.execute(update_sql, (first_start['Startstandort'], first_start['Startzeit'], 
-                                                      last_stop['Stoppstandort'], new_stoppzeit, date))
+                            conn.execute(update_sql, (erster_trip_von_bis, erster_trip_orte, 
+                                                      letzter_trip_von_bis, letzter_trip_orte, date))
                             progress_callback(f"Updated entry for {date} in table {table_name}")
                         else:
-                            progress_callback(f"Skipped earlier or same entry for {date} in table {table_name}")
+                            # Skip the entry as it's not newer
+                            progress_callback(f"Skipped entry for {date} in table {table_name} as it's not newer")
                     else:
-                        insert_sql = f"""INSERT INTO {table_name} (Datum, Erster_Startort, Erste_Startzeit, Letzter_Stoppstandort, Letzte_Stoppzeit) 
+                        # Insert a new entry
+                        insert_sql = f"""INSERT INTO {table_name} (Datum, ErsterTripVonBis, ErsterTripOrte, LetzterTripVonBis, LetzterTripOrte) 
                                         VALUES (?, ?, ?, ?, ?);"""
-                        conn.execute(insert_sql, (date, first_start['Startstandort'], first_start['Startzeit'], 
-                                                  last_stop['Stoppstandort'], last_stop['Ankunftszeit']))
+                        conn.execute(insert_sql, (date, erster_trip_von_bis, erster_trip_orte, 
+                                                  letzter_trip_von_bis, letzter_trip_orte))
                         progress_callback(f"Inserted new entry for {date} in table {table_name}")
 
         print("Data successfully imported into SQLite database.")
     else:
         print("Failed to create database connection.")
+
 
 def create_xlsx_file(database_path, xlsx_path, progress_callback):
     conn = create_connection(database_path)
@@ -104,15 +120,17 @@ def create_xlsx_file(database_path, xlsx_path, progress_callback):
                 df.to_excel(writer, sheet_name=fahrzeugname, index=False)
 
                 worksheet = writer.sheets[fahrzeugname]
-                worksheet.set_column('A:A', 10)  # Datum
-                worksheet.set_column('B:B', 70)  # Erster_Startort
-                worksheet.set_column('C:C', 13)  # Erste_Startzeit
-                worksheet.set_column('D:D', 70)  # Letzter_Stoppstandort
-                worksheet.set_column('E:E', 13)  # Letzte_Stoppzeit
+                # Adjust column widths as needed for the new structure
+                worksheet.set_column('A:A', 12)  # Datum
+                worksheet.set_column('B:B', 25)  # ErsterTripVonBis
+                worksheet.set_column('C:C', 35)  # ErsterTripOrte
+                worksheet.set_column('D:D', 25)  # LetzterTripVonBis
+                worksheet.set_column('E:E', 35)  # LetzterTripOrte
                 progress_callback(f"Mirrored data to sheet: {fahrzeugname}")
 
     else:
         print("Failed to create database connection.")
+
 
 
 def get_user_inputs():
