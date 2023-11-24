@@ -78,7 +78,7 @@ Sobald die Dateien ausgewählt sind, zeigt das Programm die Pfade zu den gewähl
 
 3. Klicken Sie auf den "Verarbeitung"-Knopf, um mit der Datenverarbeitung zu beginnen. Die GUI gibt Rückmeldung über den Fortschritt der Operationen.
 
-![Beispiel_gui](/data/Example.png)
+![Beispiel_gui](/data/Example.gif)
 
 Nach der Verarbeitung wird die SQLite-Datenbank aktualisiert und eine XLSX-Datei wird am angegebenen Ort mit den verarbeiteten Daten erstellt.
 
