@@ -13,10 +13,9 @@ Fahrdaten-Manager is a Python-based tool for importing and processing vehicle tr
 
 ## Requirements
 
-- Python 3.x
+- Python 3.10.0
 - pandas
 - sqlite3
-- PyInquirer
 - re (Regular Expression module)
 
 ## Installation
