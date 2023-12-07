@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import re
-from PyInquirer import prompt
+#from PyInquirer import prompt
 
 def create_connection(db_file):
     """Create a database connection to a SQLite database"""
@@ -133,26 +133,26 @@ def create_xlsx_file(database_path, xlsx_path, progress_callback):
 
 
 
-def get_user_inputs():
-    questions = [
-        {
-            'type': 'input',
-            'name': 'csv_file',
-            'message': 'Enter the path to your CSV file:',
-        },
-        {
-            'type': 'input',
-            'name': 'db_file',
-            'message': 'Enter the path to your SQLite database file:',
-        },
-        {
-            'type': 'input',
-            'name': 'xlsx_file',
-            'message': 'Enter the name for your XLSX file (including .xlsx):',
-        }
-    ]
-    answers = prompt(questions)
-    return answers['csv_file'], answers['db_file'], answers['xlsx_file']
+# def get_user_inputs():
+#     questions = [
+#         {
+#             'type': 'input',
+#             'name': 'csv_file',
+#             'message': 'Enter the path to your CSV file:',
+#         },
+#         {
+#             'type': 'input',
+#             'name': 'db_file',
+#             'message': 'Enter the path to your SQLite database file:',
+#         },
+#         {
+#             'type': 'input',
+#             'name': 'xlsx_file',
+#             'message': 'Enter the name for your XLSX file (including .xlsx):',
+#         }
+#     ]
+#     answers = prompt(questions)
+#     return answers['csv_file'], answers['db_file'], answers['xlsx_file']
 
 
 def main_process(csv_file_path, db_file_path, xlsx_file_path, progress_callback):
