@@ -11,7 +11,7 @@ Fahrdaten-Manager ist ein auf Python basierendes Tool zum Importieren und Verarb
 
 ## Voraussetzungen
 
-- Python 3.x
+- Python 3.10.0
 - pandas
 - sqlite3
 - PyInquirer
@@ -19,7 +19,7 @@ Fahrdaten-Manager ist ein auf Python basierendes Tool zum Importieren und Verarb
 
 ## Installation
 
-1. Stellen Sie sicher, dass Python 3.x auf Ihrem System installiert ist.
+1. Stellen Sie sicher, dass Python 3.10.0 auf Ihrem System installiert ist.
 2. Klonen Sie das Repository oder laden Sie den Quellcode herunter.
 3. Navigieren Sie zum Projektverzeichnis.
 
