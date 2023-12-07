@@ -20,7 +20,7 @@ Fahrdaten-Manager is a Python-based tool for importing and processing vehicle tr
 
 ## Installation
 
-1. Ensure Python 3.x is installed on your system.
+1. Ensure Python 3.10.0 is installed on your system.
 2. Clone the repository or download the source code.
 3. Navigate to the project directory.
 
